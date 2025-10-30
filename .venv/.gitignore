@@ -1,0 +1,35 @@
+#  IDE
+.idea/
+.vscode/
+
+#  Virtual Environments
+venv/
+env/
+.venv/
+
+#  Python Cache
+__pycache__/
+*.py[cod]
+
+#  Logs and Data
+*.log
+*.csv
+*.json
+*.txt
+
+#  Archives and Temporary Files
+*.zip
+*.tar
+*.gz
+*.db
+*.sqlite
+*.bak
+*.tmp
+*.swp
+
+#  Jupyter
+.ipynb_checkpoints/
+
+# System
+.DS_Store
+Thumbs.db
