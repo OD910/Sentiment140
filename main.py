@@ -1,4 +1,3 @@
-#main.py
 import pandas as pd
 import numpy as np
 import os
@@ -9,65 +8,85 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.callbacks import TensorBoard, EarlyStopping, ModelCheckpoint
 from tensorflow.keras.optimizers import Adam
 
+# Импорт наших собственных модулей
 from preprocess import setup_nltk, clean_tweet
 from model import build_model, PredictionCallback
 
-
+# --- КОНФИГУРАЦИЯ И ПУТИ ---
+# Пути к файлам. os.path.join делает пути совместимыми с Windows/Mac/Linux.
 DATA_FILE = os.path.join('data', 'training.1600000.processed.noemoticon.csv')
 GLOVE_FILE = os.path.join('data', 'glove.twitter.27B.100d.txt')
-LOG_DIR = 'logs'
+LOG_DIR = 'logs'  # Папка для логов TensorBoard
 MODEL_PATH = os.path.join('saved_models', 'best_model_glove.h5')
 TOKENIZER_PATH = os.path.join('saved_models', 'tokenizer.pickle')
 
+# Настройки датасета Sentiment140
 COLUMN_NAMES = ['target', 'id', 'date', 'flag', 'user', 'text']
-DATASET_ENCODING = "latin1"
+DATASET_ENCODING = "latin1"  # Датасет содержит спецсимволы, utf-8 может выдать ошибку
 
-MAX_VOCAB_SIZE = 20000
-MAX_LEN = 50
-EMBEDDING_DIM = 100
-RNN_UNITS = 64
+# Гиперпараметры модели
+MAX_VOCAB_SIZE = 20000  # Ограничиваем словарь топ-20,000 самых частых слов
+MAX_LEN = 50  # Все твиты будут приведены к длине 50 слов
+EMBEDDING_DIM = 100  # Размерность векторов GloVe (должна совпадать с файлом 100d)
+RNN_UNITS = 64  # Размер скрытого слоя в GRU
 
-BATCH_SIZE = 1024
-EPOCHS = 10
-TEST_SPLIT_SIZE = 0.2
+# Параметры обучения
+BATCH_SIZE = 1024  # Количество твитов, обрабатываемых за один шаг (больше = быстрее, но нужно больше VRAM)
+EPOCHS = 10  # Максимальное количество проходов по всему датасету
+TEST_SPLIT_SIZE = 0.2  # 20% данных откладываем для проверки (валидации)
 
+# Для отладки: если поставить число (например, 10000), возьмет только часть данных.
+# Если None — возьмет весь датасет.
 SAMPLE_SIZE = None
 
 
 def load_glove_embeddings(glove_file_path):
-
+    """
+    Читает текстовый файл GloVe.
+    Формат строки в файле: "слово 0.123 -0.456 0.789 ..."
+    Возвращает словарь {слово: вектор}.
+    """
     print(f"Загрузка векторов GloVe из {glove_file_path}...")
     embeddings_index = {}
     try:
         with open(glove_file_path, encoding='utf-8') as f:
             for line in f:
                 values = line.split()
-                word = values[0]
-                coefs = np.asarray(values[1:], dtype='float32')
+                word = values[0]  # Первое значение — само слово
+                coefs = np.asarray(values[1:], dtype='float32')  # Остальное — цифры вектора
                 embeddings_index[word] = coefs
     except FileNotFoundError:
         print(f"ОШИБКА: Файл GloVe не найден по пути {glove_file_path}")
         print("Пожалуйста, скачайте 'glove.twitter.27B.100d.txt'")
         print("и поместите его в папку 'data'.")
-        exit()
+        exit()  # Прерываем программу, если нет весов
     print(f"Загружено {len(embeddings_index)} векторов слов.")
     return embeddings_index
 
 
 def create_embedding_matrix(word_index, embeddings_index, embedding_dim, vocab_size):
-
+    """
+    Создает матрицу весов для слоя Embedding в Keras.
+    Матрица имеет размер [vocab_size, embedding_dim].
+    Строка i в матрице — это вектор GloVe для слова с индексом i.
+    """
     print("Создание матрицы весов Embedding...")
+    # Инициализируем матрицу нулями
     embedding_matrix = np.zeros((vocab_size, embedding_dim))
 
     words_found = 0
+    # Проходим по нашему словарю (из Tokenizer)
     for word, i in word_index.items():
         if i >= vocab_size:
-            continue
+            continue  # Игнорируем слова, которые выходят за предел топ-20,000
 
+        # Ищем вектор слова в загруженном GloVe
         embedding_vector = embeddings_index.get(word)
         if embedding_vector is not None:
+            # Если слово есть в GloVe, копируем его вектор в нашу матрицу
             embedding_matrix[i] = embedding_vector
             words_found += 1
+        # Если слова нет в GloVe, строка останется нулями (или можно инициализировать рандомно)
 
     print(f"Матрица создана. Форма: {embedding_matrix.shape}")
     print(f"{words_found} из {vocab_size} слов найдено в GloVe.")
@@ -75,16 +94,21 @@ def create_embedding_matrix(word_index, embeddings_index, embedding_dim, vocab_s
 
 
 def main():
-    setup_nltk()
+    setup_nltk()  # Скачиваем стоп-слова, если их нет
+    # Создаем папки для логов и моделей, чтобы не было ошибок сохранения
     os.makedirs(LOG_DIR, exist_ok=True)
     os.makedirs('saved_models', exist_ok=True)
 
     print(f"Загрузка данных из {DATA_FILE}...")
+    # names=COLUMN_NAMES обязательно, т.к. в csv файле нет заголовков
     df = pd.read_csv(DATA_FILE, encoding=DATASET_ENCODING, names=COLUMN_NAMES)
 
+    # Оставляем только текст и метку класса
     df = df[['target', 'text']]
+    # В датасете 0 = Negative, 4 = Positive. Меняем 4 на 1 для удобства.
     df['target'] = df['target'].replace(4, 1)
 
+    # Логика для быстрой отладки на маленьком куске данных
     if SAMPLE_SIZE:
         print(f"Используем выборку из {SAMPLE_SIZE} записей для отладки.")
         df = df.sample(n=SAMPLE_SIZE, random_state=42)
@@ -92,28 +116,38 @@ def main():
         print("Используем полный датасет (1.6 млн записей).")
 
     print("Распределение классов:")
-    print(df['target'].value_counts())
+    print(df['target'].value_counts())  # Проверяем баланс классов
 
     print("Начинаем очистку текста (это может занять время)...")
+    # Применяем функцию clean_tweet ко всему столбцу текста
     df['cleaned_text'] = df['text'].apply(clean_tweet)
     print("Очистка текста завершена.")
 
     print("Начинаем векторизацию текста...")
+    # Tokenizer превращает слова в числа
+    # oov_token='<OOV>' нужен для слов, которых не было в обучении (Out Of Vocabulary)
     tokenizer = Tokenizer(num_words=MAX_VOCAB_SIZE, oov_token='<OOV>')
     tokenizer.fit_on_texts(df['cleaned_text'])
 
+    # Сохраняем токенизатор, чтобы использовать его потом в predict.py
     print(f"Сохранение Tokenizer в {TOKENIZER_PATH}...")
     with open(TOKENIZER_PATH, 'wb') as handle:
         pickle.dump(tokenizer, handle, protocol=pickle.HIGHEST_PROTOCOL)
     print("Tokenizer сохранен.")
 
+    # Преобразуем текст в последовательности чисел
     sequences = tokenizer.texts_to_sequences(df['cleaned_text'])
+
+    # Pad sequences: делаем все векторы одинаковой длины (MAX_LEN).
+    # padding='post' -> добиваем нулями в конце (12, 45, 0, 0...)
     padded_sequences = pad_sequences(sequences, maxlen=MAX_LEN,
                                      padding='post', truncating='post')
 
     X = padded_sequences
     y = df['target'].values
 
+    # Разделяем на Train и Test
+    # stratify=y гарантирует, что и в train, и в test будет поровну позитива и негатива
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         test_size=TEST_SPLIT_SIZE,
                                                         random_state=42,
@@ -123,34 +157,41 @@ def main():
     print(f"Форма X_train: {X_train.shape}")
     print(f"Форма X_test: {X_test.shape}")
 
+    # --- ПОДГОТОВКА GLOVE ---
     embeddings_index = load_glove_embeddings(GLOVE_FILE)
     embedding_matrix = create_embedding_matrix(tokenizer.word_index,
                                                embeddings_index,
                                                EMBEDDING_DIM,
                                                MAX_VOCAB_SIZE)
 
+    # --- СБОРКА МОДЕЛИ ---
     print("Собираем модель (с GloVe)...")
     model = build_model(vocab_size=MAX_VOCAB_SIZE,
                         embedding_dim=EMBEDDING_DIM,
                         max_len=MAX_LEN,
                         rnn_units=RNN_UNITS,
                         embedding_matrix=embedding_matrix)
-    model.summary()
+    model.summary()  # Вывод архитектуры в консоль
 
+    # --- НАСТРОЙКА CALLBACKS ---
     print("Настраиваем Callback'и...")
 
+    # Логирование для красивых графиков
     tensorboard_callback = TensorBoard(log_dir=LOG_DIR, histogram_freq=1)
 
+    # Остановка обучения, если точность на тесте перестала расти 3 эпохи подряд
     early_stopping_callback = EarlyStopping(monitor='val_accuracy',
                                             patience=3,
                                             verbose=1,
                                             restore_best_weights=True)
 
+    # Сохранение весов модели при улучшении результата
     checkpoint_callback = ModelCheckpoint(filepath=MODEL_PATH,
                                           monitor='val_accuracy',
                                           save_best_only=True,
                                           verbose=1)
 
+    # Наш кастомный коллбэк для вывода примеров текста
     prediction_cb = PredictionCallback(X_test, y_test, tokenizer)
 
     callbacks_list = [
@@ -164,6 +205,7 @@ def main():
     print(f"Начинаем обучение на {SAMPLE_SIZE if SAMPLE_SIZE else 'ВСЕХ'} данных...")
     print("=" * 50)
 
+    # --- ЗАПУСК ОБУЧЕНИЯ ---
     history = model.fit(
         X_train, y_train,
         epochs=EPOCHS,
@@ -177,6 +219,7 @@ def main():
     print("Обучение завершено.")
     print("=" * 50)
 
+    # Финальная оценка
     print("Оценка лучшей модели (с GloVe) на тестовых данных:")
     results = model.evaluate(X_test, y_test, verbose=0)
     print(f"Test Loss: {results[0]:.4f}")

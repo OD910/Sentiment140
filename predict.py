@@ -1,23 +1,29 @@
-# predict.py
 import os
 import pickle
 import numpy as np
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
-# Импортируем нашу функцию очистки
+# Импортируем нашу функцию очистки из соседнего файла preprocess.py,
+# чтобы обрабатывать новые твиты точно так же, как обучающие данные.
 from preprocess import clean_tweet, setup_nltk
 
+# Константы путей к файлам
 MODEL_PATH = os.path.join('saved_models', 'best_model_glove.h5')
 TOKENIZER_PATH = os.path.join('saved_models', 'tokenizer.pickle')
-MAX_LEN = 50
+MAX_LEN = 50  # Должно совпадать с параметром при обучении!
 
 
 def load_prediction_assets():
+    """
+    Загружает сохраненную модель (.h5) и токенизатор (.pickle).
+    """
     print("Загрузка ресурсов для предсказания...")
     try:
         model = load_model(MODEL_PATH)
 
+        # Токенизатор нужен, чтобы превратить слова пользователя в те же числа,
+        # которые знает модель.
         with open(TOKENIZER_PATH, 'rb') as handle:
             tokenizer = pickle.load(handle)
 
@@ -34,15 +40,24 @@ def load_prediction_assets():
 
 
 def predict_sentiment(text, model, tokenizer):
+    """
+    Основная логика инференса (предсказания):
+    Raw Text -> Clean -> Tokenize -> Pad -> Predict -> Result
+    """
+    # 1. Очистка (убираем ссылки, стоп-слова, лемматизируем)
     cleaned_text = clean_tweet(text)
 
+    # 2. Превращаем текст в последовательность чисел
     sequence = tokenizer.texts_to_sequences([cleaned_text])
 
+    # 3. Дополняем нулями до длины 50 (padding)
     padded_sequence = pad_sequences(sequence, maxlen=MAX_LEN,
                                     padding='post', truncating='post')
 
+    # 4. Прогоняем через нейросеть
     prediction_prob = model.predict(padded_sequence)[0][0]
 
+    # 5. Интерпретируем результат
     if prediction_prob > 0.5:
         return "POSITIVE", prediction_prob
     else:
@@ -50,7 +65,7 @@ def predict_sentiment(text, model, tokenizer):
 
 
 def main():
-    setup_nltk()
+    setup_nltk() # Убеждаемся, что базы NLTK скачаны
 
     model, tokenizer = load_prediction_assets()
 
@@ -63,6 +78,7 @@ def main():
     print("Введи 'exit' или 'quit' для выхода.")
     print("=" * 50)
 
+    # Бесконечный цикл для общения с пользователем
     while True:
         user_input = input("Введите твит для анализа: ")
 
@@ -78,6 +94,7 @@ def main():
         if label == "POSITIVE":
             print(f"   -> РЕЗУЛЬТАТ: 🟢 ПОЗИТИВНЫЙ (Уверенность: {probability * 100:.1f}%)")
         else:
+            # Для негативного уверенность = 1 - probability
             print(f"   -> РЕЗУЛЬТАТ: 🔴 НЕГАТИВНЫЙ (Уверенность: {(1 - probability) * 100:.1f}%)")
         print("-" * 30)
 
