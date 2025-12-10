@@ -1,0 +1,198 @@
+:root {
+    --bg-light: #f8f9fa;
+    --bg-white: #ffffff;
+    --text-main: #2d3436;
+    --text-muted: #636e72;
+    --primary: #0984e3;
+    --primary-hover: #00cec9;
+
+    --positive-color: #00b894;
+    --positive-bg: #e6fffa;
+    --negative-color: #d63031;
+    --negative-bg: #ffeaea;
+
+    --border: #dfe6e9;
+    --shadow: 0 10px 30px rgba(0,0,0,0.05);
+    --font: 'Outfit', sans-serif;
+}
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+body {
+    font-family: var(--font);
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    height: 100vh;
+    overflow: hidden; /* Чтобы не было скролла на десктопе */
+}
+.split-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: 100%;
+}
+/* Общие стили панелей */
+.panel {
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    transition: background-color 0.5s ease;
+}
+.content-wrapper {
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+}
+.content-wrapper.centered {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+/* Левая панель - Ввод */
+.input-panel {
+    background-color: var(--bg-white);
+    border-right: 1px solid var(--border);
+}
+.header h1 {
+    font-size: 3.5rem;
+    line-height: 1.1;
+    margin-bottom: 20px;
+    background: linear-gradient(45deg, var(--text-main), var(--primary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+.header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+    margin-bottom: 40px;
+    max-width: 400px;
+}
+.analysis-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+textarea {
+    width: 100%;
+    height: 200px;
+    padding: 20px;
+    border: 2px solid var(--border);
+    border-radius: 20px;
+    font-family: var(--font);
+    font-size: 1.1rem;
+    background: var(--bg-light);
+    resize: none;
+    transition: all 0.3s ease;
+}
+textarea:focus {
+    outline: none;
+    border-color: var(--primary);
+    background: var(--bg-white);
+    box-shadow: 0 0 0 4px rgba(9, 132, 227, 0.1);
+}
+.analyze-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 18px;
+    background: var(--text-main);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+.analyze-btn:hover {
+    background: black;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+}
+/* Правая панель - Результат */
+.result-panel {
+    background-color: var(--bg-light);
+    position: relative;
+}
+.placeholder-content {
+    opacity: 0.4;
+}
+.placeholder-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+.status-icon {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+.status-icon svg {
+    width: 40px;
+    height: 40px;
+}
+.status-icon.positive {
+    background-color: var(--positive-bg);
+    color: var(--positive-color);
+}
+.status-icon.negative {
+    background-color: var(--negative-bg);
+    color: var(--negative-color);
+}
+.prediction-text {
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 20px;
+    letter-spacing: -1px;
+}
+.confidence-badge {
+    background: white;
+    padding: 10px 24px;
+    border-radius: 50px;
+    box-shadow: var(--shadow);
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+.confidence-badge strong {
+    color: var(--text-main);
+}
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+    body {
+        height: auto;
+        overflow-y: auto;
+    }
+
+    .split-layout {
+        grid-template-columns: 1fr;
+    }
+    .panel {
+        padding: 40px 20px;
+        min-height: 50vh;
+    }
+
+    .header h1 {
+        font-size: 2.5rem;
+    }
+}
+/* Анимации */
+.fade-in {
+    animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

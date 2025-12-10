@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="split-layout">
+    <!-- Левая часть: Форма -->
+    <section class="panel input-panel">
+        <div class="content-wrapper">
+            <header class="header">
+                <h1>Sentiment<br>Analyzer</h1>
+                <p>Вставьте текст для мгновенного анализа эмоциональной окраски.</p>
+            </header>
+            <form method="POST" action="/" class="analysis-form">
+                <textarea
+                    name="text"
+                    placeholder="Напишите или вставьте текст сюда..."
+                    required
+                    autofocus
+                >{{ original_text if original_text else '' }}</textarea>
+
+                <button type="submit" class="analyze-btn">
+                    Анализировать текст
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </section>
+    <!-- Правая часть: Результат -->
+    <section class="panel result-panel {{ 'has-result' if prediction else '' }}">
+        <div class="content-wrapper centered">
+            {% if prediction %}
+                <div class="result-content fade-in">
+                    <div class="status-icon {{ 'positive' if prediction == 'POSITIVE' else 'negative' }}">
+                        {% if prediction == 'POSITIVE' %}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+                        {% else %}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"></path></svg>
+                        {% endif %}
+                    </div>
+                    <h2 class="prediction-text">{{ prediction }}</h2>
+                    <div class="confidence-badge">
+                        Уверенность: <strong>{{ confidence }}</strong>
+                    </div>
+                </div>
+            {% else %}
+                <div class="placeholder-content">
+                    <div class="placeholder-icon">👋</div>
+                    <h3>Жду ваш текст</h3>
+                    <p>Результат анализа появится здесь</p>
+                </div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+</body>
+</html>
